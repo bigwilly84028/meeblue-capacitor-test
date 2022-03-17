@@ -1,6 +1,6 @@
 {
-  "appId": "com.k9sportcentral.start",
-  "appName": "K9SportCentral",
+  "appId": "com.meeblue-demo.start",
+  "appName": "meeblue-demo",
   "webDir": "dist",
   "bundledWebRuntime": false
 }
