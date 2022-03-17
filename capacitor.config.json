@@ -1,0 +1,6 @@
+{
+  "appId": "com.k9sportcentral.start",
+  "appName": "K9SportCentral",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

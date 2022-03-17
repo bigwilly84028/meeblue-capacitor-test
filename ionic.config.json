@@ -1,0 +1,7 @@
+{
+  "name": "K9SportCentral",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue"
+}
