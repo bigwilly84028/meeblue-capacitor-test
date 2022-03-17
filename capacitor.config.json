@@ -1,6 +1,6 @@
 {
-  "appId": "com.meeblue-demo.start",
-  "appName": "meeblue-demo",
+  "appId": "com.meebluedemo.start",
+  "appName": "meebluedemo",
   "webDir": "dist",
   "bundledWebRuntime": false
 }
