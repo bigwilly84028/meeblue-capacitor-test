@@ -168,7 +168,7 @@ export default defineComponent({
         this.RT_THSensor_Data
       );
 
-      console.log(result.getUint8(0));
+      console.log('body sensor location', result.getUint8(0));
     },
     async notify() {
       try {
