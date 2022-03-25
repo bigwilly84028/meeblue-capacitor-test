@@ -15,7 +15,7 @@
       <ion-grid>
         <ion-row>
           <ion-col>
-            {{ ble_state_ui_message }}
+            {{ ble_status_ui_message }}
           </ion-col>
         </ion-row>
         <ion-row>
@@ -25,19 +25,24 @@
         </ion-row>
         <ion-row>
           <ion-col>
+            <button class="button" @click="requestDevice()">Request the Device</button>
+          </ion-col>
+        </ion-row>
+        <ion-row>
+          <ion-col>
             <button class="button" @click="connect()">Connect</button>
           </ion-col>
         </ion-row>
-        <ion-row>
+        <!-- <ion-row>
           <ion-col>
             <button class="button" @click="authenticate()">Authenticate</button>
           </ion-col>
-        </ion-row>
-        <ion-row>
+        </ion-row> -->
+        <!-- <ion-row>
           <ion-col>
             <button class="button" @click="getServices()">Get Services</button>
           </ion-col>
-        </ion-row>
+        </ion-row> -->
         <ion-row>
           <ion-col>
             <button class="button" @click="read()">Read</button>
@@ -72,8 +77,8 @@ import {
   IonToolbar,
 } from "@ionic/vue";
 import { defineComponent } from "vue";
-import { numberToUUID } from '@capacitor-community/bluetooth-le';
-import { BleClient } from "@capacitor-community/bluetooth-le";
+// import { BleClient, numbersToDataView, numberToUUID } from "@capacitor-community/bluetooth-le";
+import { BleClient, numberToUUID } from "@capacitor-community/bluetooth-le";
 
 export default defineComponent({
   components: {
@@ -85,41 +90,55 @@ export default defineComponent({
   },
   data() {
     return {
-      // HRService: numberToUUID(0x180d)
-      // TH_SENSOR_SVC: "00002a29-0000-1000-8000-00805f9b34fb",
-      DEFAULT_PASSCODE: "meeble",
+      DEFAULT_PASSCODE: "imeeble",
       MEEBLUE_MAIN_SERVICE: "D35B1000-E01C-9FAC-BA8D-7CE20BDBA0C6",
       AUTH_CHARACTERISTIC: "D35B1001-E01C-9FAC-BA8D-7CE20BDBA0C6",
-      TH_SENSOR_SVC: "D35B3000-E01C-9FAC-BA8D-7CE20BDBA0C6",
-      RT_THSensor_Data: "D35B3001-E01C-9FAC-BA8D-7CE20BDBA0C6",
-      TEMPERATURE_CHARACTERISTIC: numberToUUID(0x8531),
+
+      TEMP_SENSOR_SERVICE: "D35B3000-E01C-9FAC-BA8D-7CE20BDBA0C6",
+      TEMP_SENSOR_CHARACTERISTIC: "D35B3001-E01C-9FAC-BA8D-7CE20BDBA0C6",
+      // TEMPERATURE_CHARACTERISTIC: numberToUUID(0x8531),
+      
       device: undefined,
-      ble_state_ui_message: undefined,
+      ble_status_ui_message: undefined,
       sensorData: undefined,
     };
   },
   async created() {
-    try {
-      await BleClient.initialize();
-
-      await BleClient.startEnabledNotifications((enabled) => {
-        this.ble_state_ui_message = "Bluetooth connection is" + enabled;
-      });
-    } catch (err) {
-      alert(err.message);
-    }
+    this.init();
   },
   methods: {
+    async init(){
+      try {
+        await BleClient.initialize();
+
+        await BleClient.startEnabledNotifications((enabled) => {
+          this.ble_status_ui_message = "Bluetooth connection is " + enabled;
+        });
+
+      } catch (err) {
+        alert(err.message);
+      }
+    },
+    async requestDevice() {
+      try{
+
+        this.device = await BleClient.requestDevice({
+          name: "meeblue"
+        });
+
+      } catch (err) {
+        alert(err.message);
+      }
+    },
     async scan() {
       try {
         await BleClient.requestLEScan(
           {
-            name: "meeblue",
-            optionalServices: [this.TH_SENSOR_SVC],
+            name: "meeblue"
           },
           (result) => {
             this.device = result.device;
-            console.log("received new scan result", result);
+            console.log("received new scan result @@@@ ", result);
           }
         );
 
@@ -135,16 +154,17 @@ export default defineComponent({
       try {
         await BleClient.connect(this.device.deviceId, (deviceId) =>
           // this.onDisconnect(deviceId)
-          this.ble_state_ui_message = "Connection Successful"
+          this.ble_status_ui_message = "Connection Successful"
         );
       } catch (error) {
-        this.ble_state_ui_message = "Connection Unsuccessful";
+        this.ble_status_ui_message = "Connection Unsuccessful";
         console.log(error);
       }
     },
     async authenticate(){
       try {
-        await BleClient.writeWithoutResponse(this.device.deviceId, this.TH_SENSOR_SVC, this.AUTH_CHARACTERISTIC, this.DEFAULT_PASSCODE);
+        await BleClient.writeWithoutResponse(this.device.deviceId, this.MEEBLUE_MAIN_SERVICE, this.AUTH_CHARACTERISTIC, this.DEFAULT_PASSCODE);
+        this.ble_status_ui_message = "Authentication Successful"
       } catch (error) {
         console.log(error);
       }
@@ -156,7 +176,6 @@ export default defineComponent({
           this.device.deviceId
         );
 
-        console.log("T&H Sensor Feed: @@@@@@@@@@@@@@@@@@@@@@@@@@");
       } catch (error) {
         console.log(error);
       }
@@ -164,36 +183,56 @@ export default defineComponent({
     async read(){
       const result = await BleClient.read(
         this.device.deviceId,
-        this.TH_SENSOR_SVC,
-        this.RT_THSensor_Data
+        this.TEMP_SENSOR_SERVICE,
+        this.TEMP_SENSOR_CHARACTERISTIC
       );
 
-      console.log('body sensor location', result.getUint8(0));
+      // try to parse sensor data...
+      const flags = result.getUint8(0);
+        const rate16Bits = flags & 0x1;
+        let parsedVal;
+        if (rate16Bits > 0) {
+          parsedVal = result.getUint16(1, true);
+        } else {
+          parsedVal = result.getUint8(1);
+        }
+
+        console.log("T&H Read: " + parsedVal);
     },
     async notify() {
       try {
         await BleClient.startNotifications(
           this.device.deviceId,
-          this.TH_SENSOR_SVC,
-          this.RT_THSensor_Data,
-          (value) => {
-
-            console.log(value);
-
-            const flags = value.getUint8(0);
+          this.TEMP_SENSOR_SERVICE,
+          this.TEMP_SENSOR_CHARACTERISTIC,
+          (result) => {
+            // try to parse sensor data...
+            const flags = result.getUint8(0);
             const rate16Bits = flags & 0x1;
-            let heartRate;
+            let parsedVal;
             if (rate16Bits > 0) {
-              heartRate = value.getUint16(1, true);
+              parsedVal = result.getUint16(1, true);
             } else {
-              heartRate = value.getUint8(1);
+              parsedVal = result.getUint8(1);
             }
-            console.log("T&H startNotifications: ", heartRate);
+
+            console.log("T&H startNotifications: " + parsedVal);
           }
         );
       } catch (error) {
         console.log(error);
       }
+    },
+    parseValue(value){
+      const flags = value.getUint8(0);
+      const rate16Bits = flags & 0x1;
+      let parsedVal;
+      if (rate16Bits > 0) {
+        parsedVal = value.getUint16(1, true);
+      } else {
+        parsedVal = value.getUint8(1);
+      }
+      return parsedVal
     },
     onDisconnect(deviceId) {
       console.log(`device ${deviceId} disconnected`);
